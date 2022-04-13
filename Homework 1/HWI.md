@@ -1,1 +1,1 @@
-This is the First Assignment of PHP 2530 for Spring 22. The Problems come from Bayesian Data Analysis 3rd Edition. The first problem deals with the Horvitz-Thompson estimator
+This is the First Assignment of PHP 2530 for Spring 22. The Problems come from Bayesian Data Analysis 3rd Edition. The first problem deals with the Horvitz-Thompson estimator; the rest come from the textbook: Exercises 1.6, 1.9, 2.4, 2.7, 2.8, 2.10, 2.13, 2.17 and 2.20
