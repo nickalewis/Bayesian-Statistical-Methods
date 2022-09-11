@@ -1,0 +1,800 @@
+---
+title: \textbf{PHP 2530 Bayesian Statistical Methods Homework II}
+author: "Nick Lewis"
+date: "2/17/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(fig.height = 4)
+knitr::opts_chunk$set(fig.width = 6)
+knitr::opts_chunk$set(fig.align="center")
+`%notin%` <- Negate(`%in%`)
+library(kableExtra)
+```
+
+```{r}
+library(DirichletReg) # allows us to sample from a dirichlet distribution
+library(ggplot2) #this makes better looking plots in R
+theme_set(theme_minimal())
+library(patchwork) #for plot manipulatios (i.e. subplots)
+library(Cairo) #Windows is bad at makinf good ggplots so this helps with resolution
+library(gridExtra)
+```
+
+# \bf Problem 1 (BDA 3rd Ed. Exercise 3.2)
+
+Comparison of two multinomial observations: on September 25, 1988, the evening of a pres-
+idential campaign debate, ABC News conducted a survey of registered voters in the United
+States; 639 persons were polled before the debate, and 639 different persons were polled after.
+The results are displayed in the table below. Assume the surveys are independent simple random
+samples from the population of registered voters. Model the data with two different multinomial
+distributions. For j = 1, 2, let $\alpha_j$ be the proportion of voters who preferred Bush, out of those
+who had a preference for either Bush or Dukakis at the time of survey j. Plot a histogram of the
+posterior density for $\alpha_2$ - $\alpha_1$. What is the posterior probability that there was a shift toward
+Bush?
+
+```{r}
+### PROBLEM 1 (BDA 3rd Ed. Exercise 3.2)
+
+### METHOD 1: SAMPLE FROM THE DIRICHLET DISTRIBUTIONS DIRCECTLY
+
+##pre-debate proportions
+pre.theta <- rdirichlet(10000, c(295,308,39))
+##post-debate proportions
+post.theta <- rdirichlet(10000, c(289,333,20))
+
+#Distribution of those who preferred bush to Dukakis before the debate
+pre.alpha <- pre.theta[,1]/(pre.theta[,1] + pre.theta[,2])
+#Distribution of those who preferred bush to Dukakis after the debate
+post.alpha <- post.theta[,1]/(post.theta[,1] + post.theta[,2])
+
+diff <- post.alpha-pre.alpha
+
+ggplot() +aes(x=diff) + 
+  geom_histogram(color="black", fill="blue")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=24),
+        axis.text = element_text(colour = "black",size = 24,face="bold"),
+        axis.title = element_text(size = 30,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(alpha[post]," - ", alpha[pre]))
+
+sprintf("The posterior probability of a shift towards Bush is %s ",mean(diff > 0))
+```
+
+
+
+```{r}
+### METHOD 2: SAMPLING DIRECTLY FROM THE DISTRIBUTION OF ALPHA
+
+#Distribution of those who preferred bush to Dukakis before the debate
+pre.alpha <- rbeta(n=10000,shape1=295, shape2=308)
+#Distribution of those who preferred bush to Dukakis after the debate
+post.alpha <-  rbeta(n=10000,shape1=289, shape2=333)
+
+diff <- post.alpha-pre.alpha
+
+ggplot() +aes(x=diff) + 
+  geom_histogram(color="black", fill="red",bins=30)+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=24),
+        axis.text = element_text(colour = "black",size = 24,face="bold"),
+        axis.title = element_text(size = 30,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(alpha[post]," - ", alpha[pre]))
+
+sprintf("The posterior probability of a shift towards Bush is %s ",mean(diff > 0))
+```
+
+
+# \bf Problem 2 (BDA 3rd Ed., Exercise 3.3)
+
+Estimation from two independent experiments: an experiment was performed on the effects
+of magnetic fields on the flow of calcium out of chicken brains. Two groups of chickens were
+involved: a control group of 32 chickens and an exposed group of 36 chickens. One measurement
+was taken on each chicken, and the purpose of the experiment was to measure the average flow $\mu_c$
+in untreated (control) chickens and the average flow $\mu_t$ in treated chickens. The 32 measurements
+on the control group had a sample mean of 1.013 and a sample standard deviation of 0.24. The
+36 measurements on the treatment group had a sample mean of 1.173 and a sample standard
+deviation of 0.20.
+
+(b) What is the posterior distribution for the difference, $\mu_t$ - $\mu_c$? To get this, you may sample
+from the independent t distributions you obtained in part (a) above. Plot a histogram of your
+samples and give an approximate 95% posterior interval for $\mu_t$ - $\mu_c$.
+
+```{r}
+### PROBLEM 2 (BDA 3rd Ed. Exercise 3.3)
+
+#treatment group
+#sample size
+n.t <- 36; mean.t <- 1.173; sd.t <- 0.20 / sqrt(n.t)
+
+#distribution of treatment group mean (t-distribution is scale-loc family)
+mu.t <- sd.t*rt(10000,n.t-1) + mean.t
+
+#control group
+#sample size
+n.c <- 32; mean.c <- 1.013; sd.c <- 0.24 / sqrt(n.c)
+#distribution of control group mean
+mu.c <- sd.c*rt(10000,n.c-1) + mean.c
+
+# Our difference in means
+mu <- mu.t - mu.c
+
+#mean, standard deviation and 95% credible interval
+mu.int <- round(quantile(mu,probs = c(0.025,0.975)),3)
+
+
+ggplot() +aes(x=mu) + 
+  geom_histogram(color="black", fill="yellow")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=20),
+        axis.text = element_text(colour = "black",size = 20,face="bold"),
+        axis.title = element_text(size = 24,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(mu[treated]," - ", mu[control]))
+
+sprintf("Our mean for the difference is %.5s",mean(mu))
+sprintf("Our standard deviation for the difference is %.5s",sd(mu))
+sprintf("The Credible Interval for the Difference is [%s]",
+        paste0(mu.int, collapse = ', '))
+```
+
+# \bf Problem 3 (BDA 3rd Ed. Exercise 3.5)
+
+ Rounded data: it is a common problem for measurements to be observed in rounded
+form (for a review, see Heitjan, 1989). For a simple example, suppose we weigh an
+object five times and measure weights, rounded to the nearest pound, of 10, 10, 12, 11,
+9. Assume the unrounded measurements are normally distributed with a noninformative
+prior distribution on the mean $\mu$ and variance $\sigma^2$.
+
+(a) Give the posterior distribution for $(\mu, \sigma^2)$ obtained by pretending that the observations
+are exact unrounded measurements.
+
+```{r}
+### PROBLEM 3 (BDA 3rd Ed. Exercise 3.5)
+
+#unrounded/rounded values
+w <- c(10,10,12,11,9)
+
+#number of grid points
+A <- 200
+
+#picks arbitrary values for mu, log(sigma)
+moo <- seq(from = 1, to = 20, length.out = A)
+lsig <- seq(from = -3, to = 3, length.out = A)
+
+#PART A : Assume unrounded measurements
+unrounded <- function(a, b, x){
+     '
+    Parameters:
+        a - grid space for mean parameter
+        b - grid space for standard deviation parameter
+        x - data vector
+    Returns: 
+        natural log of unnormalized posterior
+    '
+  prior <- 1 #prior
+  #sample size, mean and variance
+  n <- length(x); v <- mean(x); s <- var(x)
+  # translate log(sigma) back to sigma;
+  b <- exp(b)
+  loglik <- function(a,b) -n*log(b) - ( ((n-1)*s + n*(v-a)^2) / (2*b^2) )
+  #using p(mu,log(sigma)|y), the prior on p(log(sigma)) propto 1
+  logpost <- loglik(a,b) + log(prior)
+  return(logpost )
+}
+
+#fast way to calculate posterior distribution  
+system.time(unrounded.post <- outer(moo,lsig,unrounded, x = w))
+#calculates the posterior
+unrounded.post <- exp(unrounded.post)
+```
+
+(b) Give the correct posterior distribution for $(\mu, \sigma^2)$ treating the measurements as rounded.
+
+```{r}
+#PART B: posterior without rounding
+round_prior <- function(x,y) 1
+
+rounded <- function(a,b,x,prior){
+  '
+    Parameters:
+        a - grid space for mean parameter
+        b - grid space for standard deviation parameter
+        x - data vector
+        prior - prior for mu, log sigma
+    Returns: 
+        natural log of unnormalized posterior
+    '
+  b <- exp(b)   #translate log(sigma) to sigma
+  logpost <- log(prior(a,b))
+  loglik <- function(mu,sig,y) log1p(pnorm(y+0.5,mu,sig) - pnorm(y-0.5,mu,sig)-1)
+  #log posterior calculation
+  for (j in 1:length(x)){ logpost <-  logpost + loglik(a,b,x[j]) }
+  return( logpost )
+}
+
+
+#fast way to calculate posterior distribution  
+system.time(rounded.post <- outer(moo,lsig,rounded,x = w, prior = round_prior))
+#calculates the posterior
+rounded.post <- exp(rounded.post)
+```
+
+
+(c) How do the incorrect and correct posterior distributions differ? Compare means, variances, and contour plots.
+
+```{r, echo = FALSE, fig.height = 10, fig.width = 16}
+## PART C: COMPARING THE POSTERIOR DISTRIBUTIONS AND CONTOUR PLOTS
+
+#FIRST, WE SAMPLE FROM THE DISTRIBUTIONS
+
+#simulated points from marginal posteriors (unrounded)
+B <- 10000
+#sample size, sample mean, sample variance
+r <- length(w); mu.w <- mean(w); var.w = var(w)
+
+#marginal posterior pdf's for mu and sigma.
+sigma.unrounded <- sqrt(( (r-1)*var.w) / (rchisq(B, r-1)) )
+mu.unrounded  <- rnorm(B, mu.w, sigma.unrounded/sqrt(r))
+
+#simulated points from marginal posteriors (rounded)
+
+#there is no nice posterior distribution for these so we have to try something else
+
+#Make vectors that contain all pairwise combinations of A and B
+moo.grid <- rep(moo, times = length(lsig))
+sigma.grid <- rep(lsig, each = length(moo))
+
+
+'
+unravel matrix going row to row instead of column to column. This way we sample 
+(mu, sigma) instead of having to sample mu, then sigma.
+'
+
+samples <- sample(length(rounded.post), size = B,replace = T,
+                  prob = c(rounded.post) )
+
+
+#sampling this way basically gives us the same pairs + random jitter (see BDA 3rd Ed. pg. 76)
+
+#step size for mu, and log sigma grid
+d.moo <- diff(moo)[1]/2
+d.lsig <- diff(lsig)[1]/2
+#add random jitter to make samples continuous
+mu.rounded <- moo.grid[samples]+runif(B,min = -d.moo, max = d.moo)
+sigma.rounded <- exp(sigma.grid[samples]+runif(B,min = -d.lsig, max = d.lsig))
+
+
+#create all of the combinations of mu and log(sigma) for contour plot
+unrounded.data <- data.frame(mu = moo.grid,
+                             logsig = sigma.grid, 
+                             prob = c((unrounded.post)))
+rounded.data <- data.frame(mu = moo.grid,
+                             logsig = sigma.grid, 
+                             prob = c((rounded.post)))
+#CONTOUR PLOT OF UNROUNDED
+
+#contour levels
+'
+ggplot works in a similar method to python. It post the function height, 
+not the quantile
+'
+levels <- c(0.0001, 0.001, 0.01,0.05,0.25,0.50,0.75,0.95)
+cont1 <- quantile(seq(min(unrounded.post),max(unrounded.post),length.out=1e5),levels)
+cont2 <- quantile(seq(min(rounded.post),max(rounded.post),length.out=1e5),levels)
+
+#Unrounded Posterior
+unrounded.plot <- ggplot(unrounded.data, aes(x=mu, y= logsig,z=prob))+
+  stat_contour(breaks= cont1,color="black",size = 1.4)+ #contour levels
+  coord_cartesian(xlim = c(4,18), ylim = c(-3, 3)) + #chooses limits for x,y axis
+  scale_x_continuous(breaks=seq(4,18,by=2))+ #breaks the x-axis into pieces
+  scale_y_continuous(breaks=seq(-3,3,by=1))+ #breaks y - axis into pieces
+  scale_fill_gradient(low = 'yellow', high = 'red', guide = "none") +
+  scale_alpha(range = c(0, 1), guide = "none")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=20),
+        axis.text = element_text(colour = "black",size = 20,face="bold"),
+        axis.title = element_text(size = 24,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ggtitle("Unrounded Posterior")+
+  ylab(~ paste("log(",sigma,")"))+
+  xlab(~ paste(mu))
+
+#Rounded Posterior
+rounded.plot <- ggplot(rounded.data, aes(x=mu, y= logsig,z=prob))+
+  stat_contour(breaks= cont2,color="black",size = 1.4)+ #contour levels
+  coord_cartesian(xlim = c(4,18), ylim = c(-3, 3)) + #chooses limits for x,y axis
+  scale_x_continuous(breaks=seq(4,18,by=2))+ #breaks the x-axis into pieces
+  scale_y_continuous(breaks=seq(-3,3,by=1))+ #breaks y - axis into pieces
+  scale_fill_gradient(low = 'yellow', high = 'red', guide = "none") +
+  scale_alpha(range = c(0, 1), guide = "none")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=20), #increases text size
+        axis.text = element_text(colour = "black",size = 20,face="bold"),
+        axis.title = element_text(size = 24,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ggtitle("Rounded Posterior")+
+  ylab(~ paste("log(",sigma,")"))+
+  xlab(~ paste(mu))
+
+#merges plots together
+(unrounded.plot | rounded.plot) + 
+  plot_annotation(tag_levels = 'A')
+```
+
+
+```{r}
+
+# WE CALCULATE THE MEAN AND VARIANCE FOR mu and sigma.
+df.stats  <- cbind(mu.unrounded, sigma.unrounded,mu.rounded, sigma.rounded)
+df.stats  <- data.frame(v = apply(df.stats,2,mean),
+                        w = apply(df.stats,2,var),
+                        x = apply(df.stats,2,quantile,probs=0.025),
+                        y = apply(df.stats,2,quantile,probs=0.50),
+                        z = apply(df.stats,2,quantile,probs=0.975))
+df.stats <- round(df.stats,4)
+rownames(df.stats) <- c("Unrounded mu","Unrounded sigma","Rounded mu",
+                        "Rounded sigma")
+colnames(df.stats) <- c("Mean","Variance","2.5%","50%","97.5%")
+
+grid.table(df.stats)
+```
+
+(d) Let $z = (z_1,\dots,z_5)$ be the original, unrounded measurements corresponding to the five
+observations above. Draw simulations from the posterior distribution of z. Compute
+the posterior mean of $(z_1 - z_2)^2$.
+
+```{r}
+#PART D: Calculate mean of (z1-z2)^2
+
+'
+NOTE: The Inverse cdf method for the normal distribution works as follows:
+1). Let F be the normal cdf. F:[a,b] -> [F(a),F(b)], so F^-1:[F(a),F(b)] -> [a,b]. 
+2). Note [F(a),F(b)]= F(a) + (F(b)-F(a))*[0,1] so F^-1(F(a) + (F(b)-F(a))*[0,1]) 
+    maps those values to [a,b].
+'
+
+#repeat B length vector r times; repeat r length vector B times
+#I dont like loops so I just made this one big vector
+mu.reps <- rep(mu.rounded,times=r); sig.reps <- rep(sigma.rounded,times=r)
+
+#This calculates the cdfs.
+upper <- pnorm(rep(w,each=B) + 0.5,mean = mu.reps, sd = sig.reps)
+lower <- pnorm(rep(w,each=B) - 0.5,mean = mu.reps, sd = sig.reps)
+
+#inverse cdf samples
+inv.cdf.samps <- lower + runif(r*B)*(upper-lower)
+val <- qnorm(inv.cdf.samps,mean = mu.reps,sd = sig.reps)
+
+#take the r*B length vector and turn into matrix.
+#Each column corresponds to samples of unrounded measurements
+
+z <- matrix(val, ncol = r,byrow=F)
+mean ((z[,1]-z[,2])^2)
+```
+
+
+# \bf Problem 4 (BDA 3rd Ed., Exercise 3.8)
+
+Analysis of proportions: a survey was done of bicycle and other vehicular traffic in the neigh-borhood of the campus of the University of California, Berkeley, in the spring of 1993. Sixty city blocks were selected at random; each block was observed for one hour, and the numbers of bicycles and other vehicles traveling along that block were recorded. The sampling was strat-ified into six types of city blocks: busy, fairly busy, and residential streets, with and without bike routes, with ten blocks measured in each stratum. The table below displays the number of bicycles and other vehicles recorded in the study. For this problem, restrict your attention to the first four rows of the table: the data on residential streets.
+
+```{r}
+### PROBLEM 4 (BDA 3rd Ed. Exercise 3.8)
+
+#Data for this problem
+#y-bikes for streets w/ bike lanes;v- vehicles for streets w/ bike lanes
+y <- c(16, 9, 10, 13,19, 20, 18, 17,35, 55)
+v <- c(58,90, 48, 57, 103, 57, 86,112, 273, 64)
+n.y <- v + y
+
+#z-bikes for streets w/o bike lanes;v- vehicles for streets w/o bike lanes
+z <- c(12, 1, 2, 4, 9, 7, 9, 8)
+w <- c(113, 18, 14, 44,208, 67, 29, 154)
+n.z <- w + z
+```
+
+# METHOD 1: Beta Distribution
+
+The first approach involves recognizing that the proportions lie strictly between 0 and 1. Therefore a natural way to model the data is to use a beta distribution. 
+
+# Likelihood
+\begin{alignat*}{1}
+y_j|\alpha_y,\beta_y \sim Beta(\alpha_y,\beta_y) & \text{ for } j= 1,2,\dots,10\\
+z_k |\alpha_z,\beta_z \sim Beta(\alpha_z,\beta_z) & \text{ for } k= 1,2,\dots,8\\
+\end{alignat*}
+
+# Priors
+\begin{alignat*}{1}
+p(\alpha_y,\beta_y) \propto I_{\alpha_y \in [\epsilon,100], \beta_y \in [\epsilon,100]} \\
+p(\alpha_z,\beta_z) \propto I_{\alpha_z \in [\epsilon,100], \beta_z \in [\epsilon,100]} \\
+\end{alignat*}
+
+$\epsilon$ = 0.001
+
+```{r}
+### APPROACH 1: BETA DISTRIBUTION
+bike.post <- function(a,b,p){
+  '
+  PARAMETERS:
+    a - alpha values
+    b - beta values
+    p - proportions
+  '
+  post <- function(a,b,p){ log(dbeta(p,a,b))}
+  q <- 0
+  for (j in 1:length(p)){
+    q <- q + outer(a,b,post,p[j])
+  }
+  return( exp(q) )
+}
+
+#since our priors are uniform, all we have to do is restrict the grid
+
+alpha <- seq(from=0.001, to = 100, length.out=500)
+beta <- seq(from=0.001, to = 100, length.out=500)
+
+#Calculation of the Posterior Distributions
+bike.prop.y <- bike.post(alpha,beta,y/n.y)
+bike.prop.z <- bike.post(alpha,beta,z/n.z)
+
+#get samples for posterior draws
+samples.y <- sample(length(bike.prop.y), size = 1000,replace = T,
+                    prob = c(bike.prop.y) )
+samples.z <- sample(length(bike.prop.z), size = 1000,replace = T,
+                    prob = c(bike.prop.z) )
+
+#Posterior Draws: I should add a random jitter here, but I don't feel like it
+
+alpha.y.post <-  rep(alpha, times = length(beta))[samples.y]
+beta.y.post <- rep(beta, each = length(alpha))[samples.y]
+
+alpha.z.post <-  rep(alpha, times = length(beta))[samples.z]
+beta.z.post <- rep(beta, each = length(alpha))[samples.z]
+
+# Difference in Proportions
+diff1 <- rbeta(1000,alpha.y.post,beta.y.post)-rbeta(1000,alpha.z.post,beta.z.post)
+
+ggplot() +aes(x=diff1) + 
+  geom_histogram(color="black", fill="blue")+
+  geom_vline(xintercept = mean(diff1),size=2)+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=24),
+        axis.text = element_text(colour = "black",size = 24,face="bold"),
+        axis.title = element_text(size = 30,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(mu[y]," - ", mu[z]))
+
+sprintf("The Difference in proportions for Method 1 is %.5s",mean(diff1))
+```
+
+
+# METHOD 2: Binomial Distribution
+
+The second approach involves looking at the number of bicycles and the total number of observed traffic rather than the proportion. Define $y_j = \frac{b^{y}_j}{b^{y}_j + v^{y}_j}$ where $b^{y}_j$ is the number of bicycles on street j, and $v^{y}_j$ the number of non-bicycle vehicles. Call $n^y_j = b^{y}_j + v^{y}_j$ to be the total number of vehicles seen on street j. It is similarly defined for z.
+
+The reason we do this is that working with the number of bicycles rather than the proportion allows us much more leeway. There are more probability distributions that deal with count data. For this approach we make the assumption that the total number of vehicles seen is fixed, but the number of bicycles is not. We can then model $b^y_j \mid \theta_y \sim Bin(n^y_j, \theta_y)$.
+
+# Likelihood
+\begin{alignat*}{1}
+b^y_j \mid \theta_y \sim Bin(n^y_j, \theta_y) & \text{ for } j= 1,2,\dots,10\\
+b^z_k \mid \theta_z \sim Bin(m^z_k, \theta_z) & \text{ for } k= 1,2,\dots,8\\
+\end{alignat*}
+
+# Priors
+\begin{alignat*}{1}
+\theta_y \sim Beta(5,5) \\
+\theta_z \sim Beta(5,5) \\
+\end{alignat*}
+
+```{r}
+#METHOD 2: BINOMIAL LIKELIHOOD
+#Prior parameters in case you wish to change it around
+a2 <- 5; b2 <- 5
+
+#Posterior Distribution for Residential Streets with Bike Lanes
+theta.y <- rbeta(n=1000,shape1=a2+sum(y), shape2=b2+sum(n.y)-sum(y))
+#Posterior Distribution for Residential Streets without Bike Lanes
+theta.z <- rbeta(n=1000,shape1=a2+sum(z), shape2=b2+sum(n.z)-sum(z))
+
+#takes average proportion for each draw
+y.samples <- apply(outer(n.y,theta.y, rbinom,n=10000), 2, function(x) x/n.y)
+z.samples <- apply(outer(n.z,theta.z, rbinom,n=8000), 2, function(x) x/n.z)
+
+#Difference in Proportions for Method 2
+diff2 <- colMeans(y.samples) - colMeans(z.samples)
+
+ggplot() +aes(x=diff2) + 
+  geom_histogram(color="black", fill="red")+
+  geom_vline(xintercept = mean(diff2),size=2)+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=24),
+        axis.text = element_text(colour = "black",size = 24,face="bold"),
+        axis.title = element_text(size = 30,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(mu[y]," - ", mu[z]))
+
+sprintf("The Difference in proportions for Method 2 is %.5s",mean(diff2))
+```
+
+
+# METHOD 3: Poisson Distribution
+
+The third approach is similar in the setup of the second approach, except now we model both $b^{y}_j$ and  $v^{y}_j$. We no longer assume that we observe a fixed amount of vehicles in total, but rather we count the number of bicycles and non-bicycles that we see. In this regard the Poisson distribution becomes a natural formulation for the resulting models described below. The model for residential streets with bike lanes is:
+
+\begin{alignat*}{1}
+ b^{y}_j |\theta^{b}_y \sim Poisson(\theta^{b}_y) & \text{ if } j= 1,2,\dots,10\\
+v^{y}_j |\theta^{v}_y \sim Poisson(\theta^{v}_y) & \text{ if } j= 1,2,\dots,10\\
+\end{alignat*}
+
+The model for residential streets without bike lanes is
+\begin{alignat*}{1}
+ b^{z}_j  |\theta^{b}_z \sim Poisson(\theta_z) & \text{ if } k= 1,2,\dots,8\\
+v^{z}_j |\theta^{v}_z \sim Poisson(\theta^{v}_z) & \text{ if } k= 1,2,\dots,8\\
+\end{alignat*}
+
+
+ For this problem we introduce four new parameters to estimate, $\theta^{b}_y$, $\theta^{v}_y$, $\theta^{b}_z$ and $\theta^{v}_z$. These parameters are simply the rates in which those vehicles occur on the streets, and we can then estimate $\theta_y$ and $\theta_z$ as:
+
+\begin{alignat*}{1}
+\theta_y = \frac{\theta^{b}_y}{\theta^{b}_y + \theta^{v}_y}\\
+\theta_z = \frac{\theta^{b}_z}{\theta^{b}_z + \theta^{v}_z}\\
+\end{alignat*}
+
+Of course though, for what I will do throughout this problem, you will see the calculation of $\theta_y$ and $\theta_z$ is unnecessary.
+
+# Priors
+
+\begin{alignat*}{1}
+\theta^b_y \sim Gamma(15,1) \\
+\theta^v_y \sim Gamma(85,1) \\
+\theta^b_z \sim Gamma(15,1) \\
+\theta^v_z \sim Gamma(85,1) \\
+\end{alignat*}
+
+```{r}
+#APPROACH 3:
+
+#METHOD 3: Separate Bikes and Vehicles
+
+#Parameters for our gamma priors (y- bicycles, vehichles. z - bicyles, vehicles)
+a.b <- 15; a.v <- 85; b <- 1
+
+#Posterior distributions for y, v based off choice of prior
+theta.by <- rgamma(n=10000,shape = a.b+sum(y), rate=(b+length(y)))
+theta.vy <-rgamma(n=10000,shape = a.v+sum(v), rate=(b+length(v)))
+
+#Posterior distributions for z,w based off choice of prior
+theta.bz <- rgamma(n=10000,shape = a.b+sum(z), rate=(b+length(z)))
+theta.vz <-rgamma(n=10000,shape = a.v+sum(w), rate=(b+length(w)))
+
+
+#sum of the rates
+yrate <- rpois(n=10000,lambda = theta.by)+rpois(n=10000,lambda = theta.vy)
+zrate <- rpois(n=10000,lambda = theta.bz)+rpois(n=10000,lambda = theta.vz)
+
+#this is the proportion of bikes that we see
+y.bikes <- rpois(n=10000,lambda = theta.by) / yrate
+z.bikes <- rpois(n=10000,lambda = theta.bz) / zrate
+
+#Taking difference of proportions between street w/ bike lane vs without
+diff3 <- y.bikes - z.bikes
+
+ggplot() +aes(x=diff3) + 
+  geom_histogram(color="black", fill="green")+
+  geom_vline(xintercept = mean(diff3),size=2)+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=24),
+        axis.text = element_text(colour = "black",size = 24,face="bold"),
+        axis.title = element_text(size = 30,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(mu[y]," - ", mu[z]))
+
+sprintf("The Difference in proportions for Method 3 is %.5s",mean(diff3))
+```
+
+# \bf Problem 5 (BDA 3rd Ed., Exercise 3.12)
+Poisson regression model: expand the model of Exercise 2.13(a) by assuming that the
+number of fatal accidents in year t follows a Poisson distribution with mean $\alpha + \beta t$. You will estimate $\alpha$ and $\beta$, following the example of the analysis in Section 3.7. The table is provided below for reference
+
+```{r}
+### PROBLEM 5 (BDA 3rd. Ed. Exercise 3.12)
+
+#Data for the problem at hand
+#years correspond to 1976,1977,1978,1979,1980,1981,1982,1983,1984,1985
+df <- data.frame(year =1:10 ,
+            accidents=c(24, 25, 31, 31, 22, 21, 26, 20, 16, 22),
+            deaths=c(734, 516, 754, 877, 814, 362, 764, 809, 223, 1066),
+            rate =c(0.19, 0.12, 0.15, 0.16, 0.14, 0.06, 0.13, 0.13, 0.03, 0.15)
+                   )
+```
+
+(b) Discuss what would be a realistic informative prior distribution for $(\alpha, \beta)$. Sketch its
+contours and then put it aside. Do parts (c)-(h) of this problem using your noninformative prior distribution from (a).
+
+```{r}
+#Part b: informative Prior
+
+#number of draws from prior
+N <- 1000
+#grid for alpha and beta
+alpha <- seq(from = 10, to = 70, length.out = N)
+betas <-  seq(from = -5, to = 5, length.out = N)
+
+priors <- function(a,b){
+  # Calculate density on grid
+  prior <- dgamma(a,shape=50,rate=1)*dnorm(b,mean=0,sd = sqrt(0.5))
+  return(prior)
+}
+
+informative.prior <- outer(alpha,betas,priors)
+
+#Make vectors that contain all pairwise combinations of A and B
+alpha.grid <- rep(alpha, times = length(betas))
+beta.grid <- rep(betas, each = length(alpha))
+
+flight.data <- data.frame(alpha = alpha.grid,
+                          beta = beta.grid,
+                          prior = c(informative.prior))
+
+# Contour Plot of Flight Accidents Posterior
+flight.prior.plot <- ggplot(flight.data, aes(x=alpha, y= beta, z=prior))+
+  geom_contour(color="black",size = 1.4)+ #contour levels
+  coord_cartesian(xlim = c(30,70), ylim = c(-2,2)) +
+  scale_fill_gradient(low = 'yellow', high = 'red', guide = "none") +
+  scale_alpha(range = c(0, 1), guide = "none")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=20),
+        axis.text = element_text(colour = "black",size = 20,face="bold"),
+        axis.title = element_text(size = 24,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab(~ paste(beta))+
+  xlab(~ paste(alpha))
+
+flight.prior.plot
+```
+
+(e) Calculate crude estimates and uncertainties for $(\alpha, \beta)$ using linear regression.
+
+```{r}
+#this is essentially what we're doing in the problem.
+fit <- glm(accidents ~ year, data = df,family=poisson(link="identity"))
+sprintf("\U03B1 = %s, \U03B2 = %s", round(coef(fit)[1],3), round(coef(fit)[2],3))
+print("The covariance matrix for poisson regression under identity link is: ")
+round(vcov(fit),3)
+
+#this is what part e asks you to do
+fit <- lm(accidents ~ year, data = df)
+sprintf("\U03B1 = %s, \U03B2 = %s", round(coef(fit)[1],3), round(coef(fit)[2],3))
+print("The covariance matrix for linear regression is: ")
+round(vcov(fit),3)
+```
+
+
+
+
+(f) Plot the contours and take 1000 draws from the joint posterior density of $(\alpha, \beta)$.
+
+```{r}
+#PART F
+flight_prior <- function(x,y) 1
+
+flight.post <- function(a,b,t,y,prior){
+  '
+    Parameters:
+        a - grid space for alpha
+        b - grid space for beta
+        t - time data
+        y - number of fatal accidents
+        prior - prior for alpha, beta
+    Return:
+      natural log of the unnormalized posterior density
+    '
+  logl <- function(M,y){
+    rate <- ifelse(M> 0, M,0)     #M represents the kernel of the prior
+    y*log(rate) - (rate) - lfactorial(y)
+  }
+  logpost <- log(prior(a,b)) #initialize value for the for loop
+  for (j in 1:length(t)) {
+    #sums the log likelihoods
+    logpost <- logpost + logl(M = outer(a,b,function(x,y,s) x+y*s,s = t[j]) , y = y[j])
+  }
+  return( logpost )  }
+
+flight.data[["post"]] <- c(flight.post(a=alpha,b=betas, t=df[,'year'], 
+                                       y=df[,'accidents'], prior = flight_prior))
+flight.data[["post"]] <- exp(flight.data[["post"]])
+'
+unravel matrix going row to row instead of column to column. This way we sample 
+(mu, sigma) instead of having to sample mu, then sigma.
+'
+
+samples <- sample(nrow(flight.data), size = 1000,replace = T,  
+                  prob = c(flight.data[["post"]]) )
+
+#plug sample values in to give us result + random jitter
+d.alpha <- diff(alpha)[1]/2
+d.beta <-  diff(betas)[1]/2
+
+alphas.post <-  alpha.grid[samples]+runif(1000,min = -d.alpha, max = d.alpha)
+beta.post <- beta.grid[samples]+runif(1000,min = -d.beta, max = d.beta)
+
+#contour levels for flight posterior
+levels <- c( 0.01,0.05,0.25,0.50,0.75,0.95)
+flight.cont <- quantile(seq(min(flight.data[["post"]]),
+                            max(flight.data[["post"]]),
+                            length.out=1e5),levels)
+
+# Contour Plot of Flight Accidents Posterior
+flight.post.plot <- ggplot(flight.data, aes(x=alpha, y= beta, z=post))+
+  stat_contour(breaks= flight.cont,color="black",size = 1)+ #contour levels
+  coord_cartesian(xlim = c(10,50), ylim = c(-5, 5)) +
+  scale_fill_gradient(low = 'yellow', high = 'red', guide = "none") +
+  scale_alpha(range = c(0, 1), guide = "none")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=20),
+        axis.text = element_text(colour = "black",size = 20,face="bold"),
+        axis.title = element_text(size = 24,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab(~ paste(beta))+
+  xlab(~ paste(alpha))
+
+flight.post.plot
+```
+
+(g) Using your samples of $(\alpha, \beta)$, plot a histogram of the posterior density for the expected
+number of fatal accidents in 1986, $\alpha + 1986\beta$.
+
+```{r}
+ggplot() +aes(x=alphas.post+beta.post*11) + 
+  geom_histogram(color="black", fill="lightgreen")+
+  theme(axis.line = element_line(colour = "black",size=2),
+        text = element_text(size=24),
+        axis.text = element_text(colour = "black",size = 24,face="bold"),
+        axis.title = element_text(size = 30,face="bold"),
+        axis.ticks.length=unit(.25, "cm"),
+        axis.ticks = element_line(colour = "black", size = 1.5))+
+  ylab("Frequency")+
+  xlab(~ paste(alpha," + ", "1986",beta))
+```
+
+(h) Create simulation draws and obtain a 95\% predictive interval for the number of fatal
+accidents in 1986.
+
+
+```{r}
+#95%,- confidence interval
+pos <- quantile(rpois(10000,alphas.post + beta.post*11), c(0.025,0.975))
+sprintf("The Credible Interval for Fatal Accidents in 1986 is [%s]",
+        paste0(pos, collapse = ', '))
+```
+
+
+
+
+
+
+
+
+
+
